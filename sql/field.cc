@@ -5023,6 +5023,22 @@ my_time_t Field_timestamp::get_timestamp(const uchar *pos,
 }
 
 
+bool Field_timestamp::val_native(Native *to)
+{
+  int32 nr= sint4korr(ptr);
+  if (!nr)
+  {
+    to->length(0); // Zero datetime '0000-00-00 00:00:00'
+    return false;
+  }
+  if (to->alloc(4))
+    return true;
+  mi_int4store((uchar *) to->ptr(), nr);
+  to->length(4);
+  return false;
+}
+
+
 int Field_timestamp::store_TIME_with_warning(THD *thd, const Datetime *dt,
                                              const ErrConv *str, int was_cut)
 {
@@ -5409,6 +5425,18 @@ my_time_t Field_timestamp_hires::get_timestamp(const uchar *pos,
   *sec_part= (long)sec_part_unshift(read_bigendian(pos+4, sec_part_bytes(dec)), dec);
   return mi_uint4korr(pos);
 }
+
+
+bool Field_timestamp_hires::val_native(Native *to)
+{
+  ASSERT_COLUMN_MARKED_FOR_READ;
+  struct timeval tm;
+  tm.tv_sec= mi_uint4korr(ptr);
+  tm.tv_usec= (ulong) sec_part_unshift(read_bigendian(ptr+4, sec_part_bytes(dec)), dec);
+  return Timestamp_or_zero_datetime(Timestamp(tm), tm.tv_sec == 0).
+           to_native(to, dec);
+}
+
 
 double Field_timestamp_with_dec::val_real(void)
 {
